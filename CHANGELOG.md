@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0
+## 1.0.0 — 2026-11-24
 
 - Runs every registered suite job from one crontab line: `* * * * * cd /var/www/app && php cli foreman:run`.
 - Plugins register jobs with the `foreman:jobs` hook, as plain descriptors that return `done`, `more` or `failed`.
