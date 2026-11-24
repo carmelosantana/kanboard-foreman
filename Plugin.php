@@ -3,6 +3,7 @@
 namespace Kanboard\Plugin\Foreman;
 
 use Kanboard\Core\Plugin\Base;
+use Kanboard\Plugin\Foreman\Console\RunCommand;
 use Kanboard\Plugin\Foreman\Model\Foreman;
 use Kanboard\Plugin\Foreman\Model\Registry;
 use Kanboard\Plugin\Foreman\Model\Runner;
@@ -18,6 +19,9 @@ class Plugin extends Base
         $this->container['foremanRegistry'] = static fn (Container $c): Registry =>
             new Registry($c, 'time', static fn (): bool => $c['foremanSettings']->coreCronjobEnabled());
         $this->container['foremanRunner'] = static fn (Container $c): Runner => new Runner($c, 'time');
+        if (isset($this->container['cli'])) {
+            $this->container['cli']->add(new RunCommand($this->container));
+        }
     }
 
     public function getPluginName(): string
