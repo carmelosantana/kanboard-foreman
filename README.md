@@ -96,7 +96,7 @@ The payload has `job_id`, `plugin`, `run_id`, `consecutive_failures` and `error_
 
 ## Host adapter (Floorboard)
 
-A host plugin can register `foreman:host`, an array with these keys:
+A host plugin can register `foreman:host` as an array, or a callable returning one, with these keys:
 
 | Key | Effect |
 | --- | --- |
