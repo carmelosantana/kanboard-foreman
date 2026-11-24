@@ -5,7 +5,6 @@ namespace Kanboard\Plugin\Foreman\Model;
 use Closure;
 use PDO;
 use Pimple\Container;
-use RuntimeException;
 
 class Foreman
 {
@@ -39,8 +38,4 @@ class Foreman
             $this->lease->release($jobId);
         }
     }
-}
-
-class LeaseHeld extends RuntimeException
-{
 }

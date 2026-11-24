@@ -42,6 +42,35 @@ class LeaseTest extends Base
         $this->assertTrue($lease->claim(self::JOB, $this->now + 10));
     }
 
+    public function testExpiredOwnerCannotReleaseNewerLease(): void
+    {
+        $first = $this->createLease();
+        $pdo = $this->container['db']->getConnection();
+        $second = new Lease($pdo, fn (): int => $this->now);
+        $third = new Lease($pdo, fn (): int => $this->now);
+
+        $this->assertTrue($first->claim(self::JOB, $this->now + 10));
+        $this->now += 11;
+        $this->assertTrue($second->claim(self::JOB, $this->now + 60));
+
+        $first->release(self::JOB);
+
+        $this->assertFalse($third->claim(self::JOB, $this->now + 60));
+    }
+
+    public function testReleaseWithoutSuccessfulClaimDoesNothing(): void
+    {
+        $owner = $this->createLease();
+        $pdo = $this->container['db']->getConnection();
+        $other = new Lease($pdo, fn (): int => $this->now);
+
+        $this->assertTrue($owner->claim(self::JOB, $this->now + 10));
+        $this->assertFalse($other->claim(self::JOB, $this->now + 10));
+        $other->release(self::JOB);
+
+        $this->assertFalse($other->claim(self::JOB, $this->now + 10));
+    }
+
     public function testClaimUnknownJobIsFalse(): void
     {
         $lease = $this->createLease();

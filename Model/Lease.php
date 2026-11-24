@@ -8,6 +8,8 @@ use PDO;
 class Lease
 {
     private Closure $clock;
+    /** @var array<string, int> */
+    private array $claimedUntil = [];
 
     public function __construct(private PDO $pdo, callable $clock)
     {
@@ -22,12 +24,23 @@ class Lease
         );
         $statement->execute([$until, $jobId, ($this->clock)()]);
 
-        return $statement->rowCount() === 1;
+        if ($statement->rowCount() !== 1) {
+            return false;
+        }
+
+        $this->claimedUntil[$jobId] = $until;
+
+        return true;
     }
 
     public function release(string $jobId): void
     {
-        $this->pdo->prepare('UPDATE foreman_state SET lease_until = NULL WHERE job_id = ?')
-            ->execute([$jobId]);
+        if (!isset($this->claimedUntil[$jobId])) {
+            return;
+        }
+
+        $this->pdo->prepare('UPDATE foreman_state SET lease_until = NULL WHERE job_id = ? AND lease_until = ?')
+            ->execute([$jobId, $this->claimedUntil[$jobId]]);
+        unset($this->claimedUntil[$jobId]);
     }
 }
