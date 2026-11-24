@@ -1,0 +1,16 @@
+{
+    "name": "Foreman",
+    "description": "Foreman is one small plugin that runs every suite job from one crontab line.",
+    "version": "1.0.0",
+    "author": "Carmelo Santana",
+    "license": "MIT",
+    "homepage": "https://github.com/carmelosantana/kanboard-foreman",
+    "kanboard_version": ">=1.2.47",
+    "php_version": ">=8.4",
+    "recommends": [
+        {
+            "plugin": "Harbor",
+            "reason": "Provides shared styles for the Jobs page."
+        }
+    ]
+}
