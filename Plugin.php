@@ -6,6 +6,7 @@ use Kanboard\Core\Plugin\Base;
 use Kanboard\Core\Security\Role;
 use Kanboard\Plugin\Foreman\Console\RunCommand;
 use Kanboard\Plugin\Foreman\Model\Foreman;
+use Kanboard\Plugin\Foreman\Model\Health;
 use Kanboard\Plugin\Foreman\Model\Registry;
 use Kanboard\Plugin\Foreman\Model\Runner;
 use Kanboard\Plugin\Foreman\Model\Settings;
@@ -23,6 +24,7 @@ class Plugin extends Base
             new Registry($c, 'time', static fn (): bool => $c['foremanSettings']->coreCronjobEnabled());
         $this->container['foremanRunner'] = static fn (Container $c): Runner => new Runner($c, 'time');
         $this->container['foremanVisit'] = static fn (Container $c): Visit => new Visit($c);
+        $this->container['foremanHealth'] = static fn (Container $c): Health => new Health($c, 'time');
         if (isset($this->container['cli'])) {
             $this->container['cli']->add(new RunCommand($this->container));
         }
@@ -53,6 +55,14 @@ class Plugin extends Base
                         $this->container['foremanVisit']->arm();
                     } catch (Throwable $e) {
                         $this->logger->error('Foreman: could not arm visit ('.get_class($e).')');
+                    }
+
+                    if ($this->userSession->isAdmin()) {
+                        try {
+                            return ['foremanHealth' => $this->foremanHealth->summary()];
+                        } catch (Throwable $e) {
+                            $this->logger->error('Foreman: could not read job health ('.get_class($e).')');
+                        }
                     }
 
                     return [];
