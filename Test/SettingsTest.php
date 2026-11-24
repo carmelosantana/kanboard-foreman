@@ -9,9 +9,12 @@ use KanboardTests\units\Base;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class SettingsTest extends Base
 {
+    use ReleasesConnection;
+
     private const NOW = 1700000000;
 
     protected function setUp(): void

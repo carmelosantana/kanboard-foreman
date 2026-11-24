@@ -8,9 +8,12 @@ use PDO;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class LeaseTest extends Base
 {
+    use ReleasesConnection;
+
     private const JOB = 'sample:refresh';
     private int $now = 1700000000;
 

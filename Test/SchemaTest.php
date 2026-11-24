@@ -9,9 +9,12 @@ use function Kanboard\Plugin\Foreman\Schema\version_1;
 use const Kanboard\Plugin\Foreman\Schema\VERSION;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class SchemaTest extends Base
 {
+    use ReleasesConnection;
+
     public function testVersion1Tables(): void
     {
         $schemaPath = __DIR__.'/../Schema/'.ucfirst(DB_DRIVER).'.php';

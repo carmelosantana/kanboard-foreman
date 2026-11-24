@@ -11,9 +11,12 @@ use KanboardTests\units\Base;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class HealthTest extends Base
 {
+    use ReleasesConnection;
+
     private const NOW = 1795395600;
 
     protected function setUp(): void

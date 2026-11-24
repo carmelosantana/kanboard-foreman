@@ -22,9 +22,12 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class RegistryTest extends Base
 {
+    use ReleasesConnection;
+
     private const NOW = 1700000000;
     private PDO $pdo;
 

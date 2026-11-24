@@ -13,9 +13,12 @@ use RuntimeException;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class ForemanServiceTest extends Base
 {
+    use ReleasesConnection;
+
     private const NOW = 1700000000;
     private const JOB = 'sample:refresh';
     private PDO $pdo;

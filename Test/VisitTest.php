@@ -15,9 +15,14 @@ use RuntimeException;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class VisitTest extends Base
 {
+    use ReleasesConnection {
+        tearDown as releaseConnection;
+    }
+
     private int $now = 1795395600;
     private ?Closure $deferred = null;
     private array $calls = [];
@@ -39,7 +44,7 @@ class VisitTest extends Base
     protected function tearDown(): void
     {
         ignore_user_abort($this->originalIgnoreUserAbort);
-        parent::tearDown();
+        $this->releaseConnection();
     }
 
     public function testDisallowedModeDoesNotDefer(): void

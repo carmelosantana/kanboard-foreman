@@ -15,9 +15,12 @@ use Symfony\Component\Console\Tester\CommandTester;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
+require_once __DIR__.'/ReleasesConnection.php';
 
 class RunCommandTest extends Base
 {
+    use ReleasesConnection;
+
     private const NOW = 1795395600; // 2026-11-23 01:00 UTC
     private int $now = self::NOW;
     private array $jobs = [];
