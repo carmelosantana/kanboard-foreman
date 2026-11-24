@@ -4,9 +4,21 @@ namespace Kanboard\Plugin\Foreman\Model;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use DateInvalidTimeZoneException;
+use Pimple\Container;
 
 class Schedule
 {
+    public static function tz(Container $c): DateTimeZone
+    {
+        $timezone = $c['configModel']->get('application_timezone', 'UTC');
+        try {
+            return new DateTimeZone($timezone ?: 'UTC');
+        } catch (DateInvalidTimeZoneException) {
+            return new DateTimeZone('UTC');
+        }
+    }
+
     public static function firstDue(array $job, int $now, DateTimeZone $tz): int
     {
         $hour = $job['hour'] ?? null;

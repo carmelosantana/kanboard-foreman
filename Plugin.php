@@ -5,6 +5,7 @@ namespace Kanboard\Plugin\Foreman;
 use Kanboard\Core\Plugin\Base;
 use Kanboard\Plugin\Foreman\Model\Foreman;
 use Kanboard\Plugin\Foreman\Model\Registry;
+use Kanboard\Plugin\Foreman\Model\Runner;
 use Pimple\Container;
 
 class Plugin extends Base
@@ -14,6 +15,7 @@ class Plugin extends Base
         $this->container['foreman'] = static fn (Container $c): Foreman => new Foreman($c);
         $this->container['foremanRegistry'] = static fn (Container $c): Registry =>
             new Registry($c, 'time', static fn (): bool => false);
+        $this->container['foremanRunner'] = static fn (Container $c): Runner => new Runner($c, 'time');
     }
 
     public function getPluginName(): string

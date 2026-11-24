@@ -3,7 +3,6 @@
 namespace Kanboard\Plugin\Foreman\Model;
 
 use Closure;
-use DateTimeZone;
 use PDO;
 use Pimple\Container;
 
@@ -68,7 +67,7 @@ class Registry
         $jobs = $this->jobs();
         $pdo = $this->c['db']->getConnection();
         $now = ($this->clock)();
-        $tz = new DateTimeZone($this->c['configModel']->get('application_timezone', 'UTC'));
+        $tz = Schedule::tz($this->c);
         $insert = 'INSERT INTO foreman_state (job_id, plugin, enabled, next_due_at) VALUES (?, ?, ?, ?)';
         $onConflict = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
             ? 'ON DUPLICATE KEY UPDATE job_id = job_id'
