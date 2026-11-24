@@ -10,6 +10,7 @@ class Registry
 {
     private Closure $clock;
     private Closure $coreEnabled;
+    private ?array $jobs = null;
 
     public function __construct(private Container $c, callable $clock, callable $coreEnabled)
     {
@@ -20,6 +21,10 @@ class Registry
     /** @return array<string, array> */
     public function jobs(): array
     {
+        if ($this->jobs !== null) {
+            return $this->jobs;
+        }
+
         $defaults = ['budget' => 10, 'hour' => null, 'link' => null];
         $jobs = [
             'core.cronjob' => Builtin::coreCronjob($this->c) + $defaults,
@@ -48,11 +53,13 @@ class Registry
                     continue;
                 }
 
+                $plugin = $job['plugin'] ?? null;
+                $job['plugin'] = is_string($plugin) ? mb_substr($plugin, 0, 64, 'UTF-8') : 'unknown';
                 $jobs[$id] = $job + $defaults;
             }
         }
 
-        return $jobs;
+        return $this->jobs = $jobs;
     }
 
     public function sync(): void
@@ -76,12 +83,14 @@ class Registry
     {
         $id = $job['id'] ?? null;
         $interval = $job['interval'] ?? null;
+        $hour = $job['hour'] ?? null;
 
         return match (true) {
-            !is_string($id) || !preg_match('/^[a-z0-9][a-z0-9:_.-]{0,63}$/D', $id) => 'invalid id',
+            !is_string($id) || !preg_match('/^[a-z0-9][a-z0-9:._-]{0,63}$/D', $id) => 'invalid id',
             isset($jobs[$id]) => 'duplicate id',
             !is_int($interval) || $interval < 60 => 'interval below 60',
             !is_callable($job['run'] ?? null) => 'run not callable',
+            array_key_exists('hour', $job) && (!is_int($hour) || $hour < 0 || $hour > 23) => 'invalid hour',
             default => null,
         };
     }

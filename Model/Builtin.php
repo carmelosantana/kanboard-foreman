@@ -17,7 +17,11 @@ class Builtin
             'interval' => 86400,
             'hour' => 8,
             'run' => static function () use ($c): array {
-                $c['cli']->find('cronjob')->run(new ArrayInput(['command' => 'cronjob']), new NullOutput());
+                $exitCode = $c['cli']->find('cronjob')->run(new ArrayInput(['command' => 'cronjob']), new NullOutput());
+
+                if ($exitCode !== 0) {
+                    return ['status' => 'failed', 'summary' => 'exit '.$exitCode];
+                }
 
                 return ['status' => 'done'];
             },

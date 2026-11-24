@@ -94,18 +94,44 @@ class RegistryTest extends Base
             array_replace($this->job('deed.refresh'), ['plugin' => 'Duplicate']),
             array_replace($this->job('fast'), ['interval' => 59]),
             array_replace($this->job('no-run'), ['run' => 'not_a_callable']),
+            array_replace($this->job('hour-too-high'), ['hour' => 24]),
+            array_replace($this->job('hour-too-low'), ['hour' => -1]),
+            array_replace($this->job('hour-string'), ['hour' => '8']),
+            array_replace($this->job('hour-null'), ['hour' => null]),
+            array_replace($this->job('midnight'), ['hour' => 0]),
         ]);
 
         $jobs = $this->registry()->jobs();
 
-        $this->assertEqualsCanonicalizing(['deed.refresh', 'core.cronjob', 'foreman.prune'], array_keys($jobs));
+        $this->assertEqualsCanonicalizing(
+            ['deed.refresh', 'core.cronjob', 'foreman.prune', 'midnight'],
+            array_keys($jobs)
+        );
         $this->assertSame('Deed', $jobs['deed.refresh']['plugin']);
+        $this->assertSame(0, $jobs['midnight']['hour']);
         $this->assertSame([
             'Foreman: skipped job "Bad Id" (invalid id)',
             'Foreman: skipped job "deed.refresh" (duplicate id)',
             'Foreman: skipped job "fast" (interval below 60)',
             'Foreman: skipped job "no-run" (run not callable)',
+            'Foreman: skipped job "hour-too-high" (invalid hour)',
+            'Foreman: skipped job "hour-too-low" (invalid hour)',
+            'Foreman: skipped job "hour-string" (invalid hour)',
+            'Foreman: skipped job "hour-null" (invalid hour)',
         ], $logger->warnings);
+    }
+
+    public function testJobsValidatesAndWarnsOncePerRegistry(): void
+    {
+        $logger = $this->getMockBuilder(AbstractLogger::class)->onlyMethods(['log'])->getMock();
+        $logger->expects($this->once())->method('log')
+            ->with('warning', 'Foreman: skipped job "Bad Id" (invalid id)', []);
+        $this->container['logger'] = $logger;
+        $this->container['hook']->on('foreman:jobs', fn () => [$this->job('Bad Id')]);
+
+        $registry = $this->registry();
+
+        $this->assertSame($registry->jobs(), $registry->jobs());
     }
 
     public function testSyncInsertsMissingStateAndPreservesExistingRows(): void
@@ -132,9 +158,33 @@ class RegistryTest extends Base
         $this->assertSame($rows, $this->state());
 
         $this->container['hook'] = new Hook();
+        $registry = $this->registry();
         $this->assertArrayNotHasKey('deed.refresh', $registry->jobs());
         $registry->sync();
         $this->assertSame($rows, $this->state());
+    }
+
+    /** @dataProvider pluginNames */
+    public function testSyncStoresNormalizedPluginNames(array $pluginField, string $expected): void
+    {
+        $job = array_diff_key($this->job('deed.refresh'), ['plugin' => true]) + $pluginField;
+        $this->container['hook']->on('foreman:jobs', fn () => [$job]);
+        $registry = $this->registry();
+
+        $registry->sync();
+
+        $this->assertSame($expected, $this->state()['deed.refresh']['plugin']);
+        $this->assertSame($expected, $registry->jobs()['deed.refresh']['plugin']);
+    }
+
+    public static function pluginNames(): array
+    {
+        return [
+            'missing' => [[], 'unknown'],
+            'non-string' => [['plugin' => 123], 'unknown'],
+            'long' => [['plugin' => str_repeat('x', 100)], str_repeat('x', 64)],
+            'multibyte' => [['plugin' => str_repeat('é', 100)], str_repeat('é', 64)],
+        ];
     }
 
     public function testSyncCanEnableCoreCronjobOnInsert(): void
@@ -180,6 +230,20 @@ class RegistryTest extends Base
         $this->assertSame(['status' => 'done'], $job['run'](self::NOW + 10, 'cli'));
         $this->assertInstanceOf(ArrayInput::class, $command->input);
         $this->assertInstanceOf(NullOutput::class, $command->output);
+    }
+
+    public function testCoreCronjobReportsNonzeroExit(): void
+    {
+        $command = new class('cronjob') extends Command {
+            protected function execute(InputInterface $input, OutputInterface $output): int
+            {
+                return self::FAILURE;
+            }
+        };
+        $this->container['cli']->add($command);
+        $job = Builtin::coreCronjob($this->container);
+
+        $this->assertSame(['status' => 'failed', 'summary' => 'exit 1'], $job['run'](self::NOW + 10, 'cli'));
     }
 
     private function registry(bool $coreEnabled = false): Registry
