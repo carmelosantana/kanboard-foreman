@@ -6,6 +6,7 @@ use Kanboard\Core\Plugin\Hook;
 use Kanboard\Plugin\Foreman\Model\Settings;
 use Kanboard\Plugin\Foreman\Plugin;
 use KanboardTests\units\Base;
+use Psr\Log\AbstractLogger;
 use function Kanboard\Plugin\Foreman\Schema\version_1;
 
 require_once 'tests/units/Base.php';
@@ -91,6 +92,24 @@ class SettingsTest extends Base
         $this->assertSame('auto', $settings->visitMode());
     }
 
+    public function testPlainArrayAdapterForcesVisitMode(): void
+    {
+        $this->container['hook']->on('foreman:host', ['visit_fallback' => 'never']);
+        $this->container['configModel']->save(['foreman_visit_mode' => 'always']);
+
+        $this->assertSame('never', $this->settings()->visitMode());
+    }
+
+    public function testInvalidListenerIsIgnoredAndOnlyItsTypeIsLogged(): void
+    {
+        $this->assertInvalidHostAdapter('invalid listener text', 'string');
+    }
+
+    public function testInvalidCallableResultIsIgnoredAndOnlyItsTypeIsLogged(): void
+    {
+        $this->assertInvalidHostAdapter(fn (): string => 'invalid result text', 'string');
+    }
+
     public function testPluginRegistryReadsCoreSettingAndJobTogglePersists(): void
     {
         require_once __DIR__.'/../Schema/'.ucfirst(DB_DRIVER).'.php';
@@ -117,5 +136,16 @@ class SettingsTest extends Base
     private function settings(): Settings
     {
         return new Settings($this->container, fn (): int => self::NOW);
+    }
+
+    private function assertInvalidHostAdapter(mixed $listener, string $type): void
+    {
+        $logger = $this->getMockBuilder(AbstractLogger::class)->onlyMethods(['log'])->getMock();
+        $logger->expects($this->once())->method('log')
+            ->with('warning', 'Foreman: ignored foreman:host adapter of type '.$type, []);
+        $this->container['logger'] = $logger;
+        $this->container['hook']->on('foreman:host', $listener);
+
+        $this->assertNull($this->settings()->host());
     }
 }

@@ -16,9 +16,19 @@ class Settings
 
     public function host(): ?array
     {
-        $adapter = $this->c['hook']->first('foreman:host');
+        $listeners = $this->c['hook']->getListeners('foreman:host');
+        if ($listeners === []) {
+            return null;
+        }
 
-        return is_array($adapter) && $adapter !== [] ? $adapter : null;
+        $listener = $listeners[0];
+        $adapter = is_callable($listener) ? $listener() : $listener;
+        if (!is_array($adapter)) {
+            $this->c['logger']->warning('Foreman: ignored foreman:host adapter of type '.gettype($adapter));
+            return null;
+        }
+
+        return $adapter === [] ? null : $adapter;
     }
 
     public function visitMode(): string
