@@ -2,6 +2,7 @@
 
 namespace Kanboard\Plugin\Foreman\Test;
 
+use Error;
 use Kanboard\Core\Plugin\Hook;
 use Kanboard\Plugin\Foreman\Console\RunCommand;
 use Kanboard\Plugin\Foreman\Model\Lease;
@@ -68,12 +69,39 @@ class RunCommandTest extends Base
         $this->assertSame("a: failed\nb: done\n", $tester->getDisplay(true));
     }
 
+    /** @dataProvider interruptedCommandInputs */
+    public function testStoresHeartbeatBeforeAnInterruptedTick(array $input): void
+    {
+        $error = new Error('Job interrupted');
+        $this->addJob('x', static fn (): never => throw $error);
+        // Runner handles job errors, so let this one escape the tick via its failure event.
+        $this->dispatcher->addListener('foreman.job.failed', static fn (): never => throw $error);
+
+        try {
+            $this->tester()->execute($input);
+            $this->fail('Expected the tick to be interrupted');
+        } catch (Error $caught) {
+            $this->assertSame($error, $caught);
+        }
+
+        $this->assertSame((string) self::NOW, $this->container['configModel']->getOption('foreman_cli_last_seen', null));
+    }
+
+    public static function interruptedCommandInputs(): array
+    {
+        return [
+            'cron' => [[]],
+            'selected job' => [['--job' => 'x']],
+        ];
+    }
+
     public function testUnknownJobIsRejected(): void
     {
         $tester = $this->tester();
 
         $this->assertSame(2, $tester->execute(['--job' => 'unknown']));
         $this->assertSame("Unknown or disabled job: unknown\n", $tester->getDisplay(true));
+        $this->assertNull($this->container['configModel']->getOption('foreman_cli_last_seen', null));
     }
 
     public function testSelectedJobGetsAFreshDeadlineUntilItFinishes(): void
@@ -105,6 +133,7 @@ class RunCommandTest extends Base
         $this->assertSame(2, $tester->execute(['--job' => 'x']));
         $this->assertSame("Unknown or disabled job: x\n", $tester->getDisplay(true));
         $this->assertSame([], $this->calls);
+        $this->assertNull($this->container['configModel']->getOption('foreman_cli_last_seen', null));
     }
 
     public function testSelectedJobWithHeldLeaseIsStillEnabled(): void

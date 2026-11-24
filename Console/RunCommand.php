@@ -34,6 +34,7 @@ class RunCommand extends Command
             return self::INVALID;
         }
 
+        $this->c['foremanSettings']->markCliSeen();
         $runner = $this->c['foremanRunner'];
         $exitCode = self::SUCCESS;
         do {
@@ -52,8 +53,6 @@ class RunCommand extends Command
                 $repeat = $jobId !== null && $status === 'more';
             }
         } while ($repeat);
-
-        $this->c['foremanSettings']->markCliSeen();
 
         return $exitCode;
     }
