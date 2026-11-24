@@ -1,0 +1,13 @@
+.foreman-status[data-state="done"] {
+    color: var(--success, var(--alert-color-success));
+}
+
+.foreman-status[data-state="failed"],
+.foreman-status[data-state="interrupted"] {
+    color: var(--destructive, var(--alert-color-error));
+}
+
+.foreman-status[data-state="more"],
+.foreman-status[data-state="running"] {
+    color: var(--warning, var(--alert-color-default));
+}
