@@ -12,6 +12,7 @@ use Kanboard\Plugin\Foreman\Model\Schedule;
 use Kanboard\Plugin\Foreman\Plugin;
 use KanboardTests\units\Base;
 use PDO;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\EventDispatcher\GenericEvent;
 use UnexpectedValueException;
@@ -220,6 +221,46 @@ class RunnerTest extends Base
         $runs = $this->log()->recent('a', 2);
         $this->assertSame(['done', 'done'], array_column($runs, 'status'));
         $this->assertGreaterThan((int) $runs[1]['id'], (int) $runs[0]['id']);
+    }
+
+    /** @dataProvider throwingListeners */
+    public function testThrowingListenerLeavesRunFinishedAndTickContinues(string $event, string $status): void
+    {
+        $this->jobs[2]['run'] = static fn () => ['status' => $status];
+        $this->sync();
+        if ($status === 'done') {
+            $this->pdo->exec("UPDATE foreman_state SET consecutive_failures = 1 WHERE job_id = 'a'");
+        }
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $warnings = [];
+        $logger->method('warning')->willReturnCallback(
+            static function ($message, array $context = []) use (&$warnings): void {
+                $warnings[] = [$message, $context];
+            }
+        );
+        $this->container['logger'] = $logger;
+        $this->dispatcher->addListener($event, static function (): void {
+            throw new RuntimeException('listener secret');
+        });
+
+        $results = $this->runner()->tick('cli', self::NOW + 50);
+        $this->assertSame(['a', 'b', 'c'], array_column($results, 'job_id'));
+        $this->assertSame([$status, 'done', 'done'], array_column($results, 'status'));
+        $run = $this->log()->recent('a')[0];
+        $this->assertSame($status, $run['status']);
+        $this->assertSame(self::NOW, (int) $run['finished_at']);
+        $this->assertNull($run['error_class']);
+        $this->assertSame(['Foreman: event listener failed (RuntimeException)', []], end($warnings));
+        $this->assertStringNotContainsString('listener secret', json_encode($warnings));
+    }
+
+    public static function throwingListeners(): array
+    {
+        return [
+            'failure event' => ['foreman.job.failed', 'failed'],
+            'recovery event' => ['foreman.job.recovered', 'done'],
+        ];
     }
 
     /** @dataProvider malformedResults */

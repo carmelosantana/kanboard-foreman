@@ -75,10 +75,11 @@ class RunCommandTest extends Base
     /** @dataProvider interruptedCommandInputs */
     public function testStoresHeartbeatBeforeAnInterruptedTick(array $input): void
     {
-        $error = new Error('Job interrupted');
-        $this->addJob('x', static fn (): never => throw $error);
-        // Runner handles job errors, so let this one escape the tick via its failure event.
-        $this->dispatcher->addListener('foreman.job.failed', static fn (): never => throw $error);
+        $error = new Error('Tick interrupted');
+        $this->addJob('x', static fn (): array => ['status' => 'done']);
+        $runner = $this->createMock(Runner::class);
+        $runner->expects($this->once())->method('tick')->willThrowException($error);
+        $this->container['foremanRunner'] = $runner;
 
         try {
             $this->tester()->execute($input);

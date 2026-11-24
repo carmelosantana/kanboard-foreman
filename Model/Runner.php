@@ -166,6 +166,10 @@ class Runner
         }
 
         $event = $status === 'failed' ? 'foreman.job.failed' : 'foreman.job.recovered';
-        $this->c['dispatcher']->dispatch(new GenericEvent($payload), $event);
+        try {
+            $this->c['dispatcher']->dispatch(new GenericEvent($payload), $event);
+        } catch (Throwable $e) {
+            $this->c['logger']->warning(sprintf('Foreman: event listener failed (%s)', get_class($e)));
+        }
     }
 }
