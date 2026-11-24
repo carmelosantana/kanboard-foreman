@@ -58,7 +58,7 @@ $this->hook->on('foreman:jobs', fn (): array => [[
     'title' => 'Refresh due domains',
     'interval' => 86400,                 // seconds, an int ≥ 60
     'hour' => 6,                         // optional: earliest local hour (0–23) for daily jobs; null = none
-    'budget' => 10,                      // optional: seconds per page-visit run (default 10)
+    'budget' => 10,                      // optional: seconds per page-visit run, an int ≥ 1 (10 if omitted or null)
     'link' => ['controller' => 'DomainController', 'action' => 'index', 'params' => [], 'plugin' => 'Deed'], // optional Details link
     'run' => function (int $deadline, string $trigger): array {
         // Work until time() reaches $deadline, keeping your own cursor.
@@ -73,6 +73,8 @@ $this->hook->on('foreman:jobs', fn (): array => [[
   exception's class name, never its message. A failed job retries after its interval, or after 15 minutes,
   whichever is sooner.
 - Invalid descriptors are skipped with a log warning: `Foreman: skipped job "{id}" ({reason})`.
+  The reasons are `invalid id`, `duplicate id`, `interval below 60`, `run not callable`,
+  `invalid hour`, and `invalid budget`.
 - To check whether Foreman is installed, test `isset($container['foreman'])` at request time, never in
   `initialize()`. Plugins load alphabetically, so Foreman may not be registered yet. When Foreman is present,
   turn your own page-visit fallback off.

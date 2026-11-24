@@ -57,23 +57,27 @@ class RegistryTest extends Base
         $this->container['hook']->on('foreman:jobs', fn () => [
             array_replace($this->job('vault:purge'), [
                 'plugin' => 'Vault',
-                'budget' => 5,
+                'budget' => 3,
                 'hour' => 4,
                 'link' => ['controller' => 'Vault'],
             ]),
+        ]);
+        $this->container['hook']->on('foreman:jobs', fn () => [
+            array_replace($this->job('null-budget'), ['budget' => null]),
         ]);
         $this->container['hook']->on('foreman:jobs', fn () => 'ignored');
 
         $jobs = $this->registry()->jobs();
 
         $this->assertEqualsCanonicalizing(
-            ['deed.refresh', 'vault:purge', 'core.cronjob', 'foreman.prune'],
+            ['deed.refresh', 'vault:purge', 'null-budget', 'core.cronjob', 'foreman.prune'],
             array_keys($jobs)
         );
         $this->assertSame(10, $jobs['deed.refresh']['budget']);
         $this->assertNull($jobs['deed.refresh']['hour']);
         $this->assertNull($jobs['deed.refresh']['link']);
-        $this->assertSame(5, $jobs['vault:purge']['budget']);
+        $this->assertSame(3, $jobs['vault:purge']['budget']);
+        $this->assertSame(10, $jobs['null-budget']['budget']);
         $this->assertSame(4, $jobs['vault:purge']['hour']);
         $this->assertSame(['controller' => 'Vault'], $jobs['vault:purge']['link']);
         $this->assertSame(86400, $jobs['core.cronjob']['interval']);
@@ -106,6 +110,8 @@ class RegistryTest extends Base
             array_replace($this->job('hour-string'), ['hour' => '8']),
             array_replace($this->job('hour-null'), ['hour' => null]),
             array_replace($this->job('midnight'), ['hour' => 0]),
+            array_replace($this->job('budget-string'), ['budget' => '5']),
+            array_replace($this->job('budget-zero'), ['budget' => 0]),
         ]);
 
         $jobs = $this->registry()->jobs();
@@ -125,6 +131,8 @@ class RegistryTest extends Base
             'Foreman: skipped job "hour-too-high" (invalid hour)',
             'Foreman: skipped job "hour-too-low" (invalid hour)',
             'Foreman: skipped job "hour-string" (invalid hour)',
+            'Foreman: skipped job "budget-string" (invalid budget)',
+            'Foreman: skipped job "budget-zero" (invalid budget)',
         ], $logger->warnings);
     }
 

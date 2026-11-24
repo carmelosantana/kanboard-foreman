@@ -55,6 +55,7 @@ class Registry
 
                 $plugin = $job['plugin'] ?? null;
                 $job['plugin'] = is_string($plugin) ? mb_substr($plugin, 0, 64, 'UTF-8') : 'unknown';
+                $job['budget'] ??= $defaults['budget'];
                 $jobs[$id] = $job + $defaults;
             }
         }
@@ -90,6 +91,7 @@ class Registry
         $id = $job['id'] ?? null;
         $interval = $job['interval'] ?? null;
         $hour = $job['hour'] ?? null;
+        $budget = $job['budget'] ?? null;
 
         return match (true) {
             !is_string($id) || !preg_match('/^[a-z0-9][a-z0-9:._-]{0,63}$/D', $id) => 'invalid id',
@@ -97,6 +99,7 @@ class Registry
             !is_int($interval) || $interval < 60 => 'interval below 60',
             !is_callable($job['run'] ?? null) => 'run not callable',
             $hour !== null && (!is_int($hour) || $hour < 0 || $hour > 23) => 'invalid hour',
+            $budget !== null && (!is_int($budget) || $budget < 1) => 'invalid budget',
             default => null,
         };
     }
