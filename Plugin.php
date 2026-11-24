@@ -8,7 +8,9 @@ use Kanboard\Plugin\Foreman\Model\Foreman;
 use Kanboard\Plugin\Foreman\Model\Registry;
 use Kanboard\Plugin\Foreman\Model\Runner;
 use Kanboard\Plugin\Foreman\Model\Settings;
+use Kanboard\Plugin\Foreman\Trigger\Visit;
 use Pimple\Container;
+use Throwable;
 
 class Plugin extends Base
 {
@@ -19,8 +21,23 @@ class Plugin extends Base
         $this->container['foremanRegistry'] = static fn (Container $c): Registry =>
             new Registry($c, 'time', static fn (): bool => $c['foremanSettings']->coreCronjobEnabled());
         $this->container['foremanRunner'] = static fn (Container $c): Runner => new Runner($c, 'time');
+        $this->container['foremanVisit'] = static fn (Container $c): Visit => new Visit($c);
         if (isset($this->container['cli'])) {
             $this->container['cli']->add(new RunCommand($this->container));
+        }
+        if (isset($this->container['hook'])) {
+            $this->hook->on('template:layout:top', [
+                'template' => 'Foreman:layout/top',
+                'callable' => function (): array {
+                    try {
+                        $this->container['foremanVisit']->arm();
+                    } catch (Throwable $e) {
+                        $this->logger->error('Foreman: could not arm visit ('.get_class($e).')');
+                    }
+
+                    return [];
+                },
+            ]);
         }
     }
 
