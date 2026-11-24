@@ -3,11 +3,14 @@
 namespace Kanboard\Plugin\Foreman;
 
 use Kanboard\Core\Plugin\Base;
+use Kanboard\Plugin\Foreman\Model\Foreman;
+use Pimple\Container;
 
 class Plugin extends Base
 {
     public function initialize(): void
     {
+        $this->container['foreman'] = static fn (Container $c): Foreman => new Foreman($c);
     }
 
     public function getPluginName(): string
