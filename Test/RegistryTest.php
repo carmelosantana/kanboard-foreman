@@ -2,6 +2,7 @@
 
 namespace Kanboard\Plugin\Foreman\Test;
 
+use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use Kanboard\Core\Plugin\Hook;
@@ -10,6 +11,7 @@ use Kanboard\Plugin\Foreman\Model\Registry;
 use Kanboard\Plugin\Foreman\Plugin;
 use KanboardTests\units\Base;
 use PDO;
+use PDOStatement;
 use Pimple\Container;
 use Psr\Log\AbstractLogger;
 use Symfony\Component\Console\Command\Command;
@@ -159,11 +161,33 @@ class RegistryTest extends Base
         $registry->sync();
         $this->assertSame($rows, $this->state());
 
+        $this->pdo->exec("DELETE FROM foreman_state WHERE job_id = 'foreman.prune'");
+        $registry->sync();
+        $this->assertSame($rows, $this->state());
+
         $this->container['hook'] = new Hook();
         $registry = $this->registry();
         $this->assertArrayNotHasKey('deed.refresh', $registry->jobs());
         $registry->sync();
         $this->assertSame($rows, $this->state());
+    }
+
+    public function testSyncExecutesNoInsertsWhenAllJobsHaveState(): void
+    {
+        $this->container['hook']->on('foreman:jobs', fn () => [$this->job('deed.refresh')]);
+        $registry = $this->registry();
+        $registry->sync();
+
+        $inserts = [];
+        $this->pdo->setAttribute(PDO::ATTR_STATEMENT_CLASS, [RegistryInsertSpy::class, [
+            static function (string $jobId) use (&$inserts): void {
+                $inserts[] = $jobId;
+            },
+        ]]);
+
+        $registry->sync();
+
+        $this->assertSame([], $inserts);
     }
 
     /** @dataProvider pluginNames */
@@ -281,5 +305,20 @@ class RegistryTest extends Base
     {
         return $this->pdo->query('SELECT * FROM foreman_state ORDER BY job_id')
             ->fetchAll(PDO::FETCH_UNIQUE | PDO::FETCH_ASSOC);
+    }
+}
+
+class RegistryInsertSpy extends PDOStatement
+{
+    protected function __construct(private Closure $recordInsert)
+    {
+    }
+
+    public function execute(?array $params = null): bool
+    {
+        if (str_starts_with($this->queryString, 'INSERT INTO foreman_state')) {
+            ($this->recordInsert)($params[0]);
+        }
+        return parent::execute($params);
     }
 }

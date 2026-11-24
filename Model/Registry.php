@@ -64,8 +64,13 @@ class Registry
 
     public function sync(): void
     {
-        $jobs = $this->jobs();
         $pdo = $this->c['db']->getConnection();
+        $existingIds = $pdo->query('SELECT job_id FROM foreman_state')->fetchAll(PDO::FETCH_COLUMN);
+        $missingJobs = array_diff_key($this->jobs(), array_fill_keys($existingIds, true));
+        if ($missingJobs === []) {
+            return;
+        }
+
         $now = ($this->clock)();
         $tz = Schedule::tz($this->c);
         $insert = 'INSERT INTO foreman_state (job_id, plugin, enabled, next_due_at) VALUES (?, ?, ?, ?)';
@@ -74,7 +79,7 @@ class Registry
             : 'ON CONFLICT (job_id) DO NOTHING';
         $statement = $pdo->prepare($insert.' '.$onConflict);
 
-        foreach ($jobs as $job) {
+        foreach ($missingJobs as $job) {
             $enabled = $job['id'] !== 'core.cronjob' || ($this->coreEnabled)();
             $statement->execute([$job['id'], $job['plugin'], (int) $enabled, Schedule::firstDue($job, $now, $tz)]);
         }
