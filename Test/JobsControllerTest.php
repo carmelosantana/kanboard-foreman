@@ -8,6 +8,7 @@ use Kanboard\Core\Http\Response;
 use Kanboard\Core\Plugin\Hook;
 use Kanboard\Core\Security\Role;
 use Kanboard\Plugin\Foreman\Controller\JobsController;
+use Kanboard\Plugin\Foreman\Model\Health;
 use Kanboard\Plugin\Foreman\Model\Registry;
 use Kanboard\Plugin\Foreman\Model\RunLog;
 use Kanboard\Plugin\Foreman\Model\Runner;
@@ -54,6 +55,7 @@ class JobsControllerTest extends Base
         $settings = new Settings($this->container, $clock);
         $this->container['foremanSettings'] = $settings;
         $this->container['foremanRegistry'] = new Registry($this->container, $clock, $settings->coreCronjobEnabled(...));
+        $this->container['foremanHealth'] = new Health($this->container, $clock);
 
         $response = $this->getMockBuilder(Response::class)
             ->setConstructorArgs([$this->container])
@@ -119,6 +121,25 @@ class JobsControllerTest extends Base
         $this->assertStringContainsString('Cron last seen 2 min ago', $this->html);
         $this->assertStringContainsString('Foreman: no job has run for 5 minutes', $this->html);
         $this->assertStringContainsString('* * * * * cd /var/www/app &amp;&amp; php cli foreman:run', $this->html);
+    }
+
+    public function testIndexStaleWarningFollowsHealthAtTheBoundary(): void
+    {
+        $this->container['foremanRegistry']->sync();
+        $statement = $this->container['db']->getConnection()->prepare(
+            'UPDATE foreman_state SET last_finished_at = ? WHERE job_id = ?'
+        );
+        $statement->execute([$this->now - 120, self::JOB]);
+        $health = $this->container['foremanHealth'];
+
+        $this->assertNull($health->summary()['stale_minutes']);
+        $this->controller()->index();
+        $this->assertStringNotContainsString('Foreman: no job has run', $this->html);
+
+        ++$this->now;
+        $this->assertSame(2, $health->summary()['stale_minutes']);
+        $this->controller()->index();
+        $this->assertStringContainsString('Foreman: no job has run for 2 minutes', $this->html);
     }
 
     public function testIndexShowsForcedVisitSettingAndHostSchedules(): void

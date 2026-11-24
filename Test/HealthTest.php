@@ -50,9 +50,17 @@ class HealthTest extends Base
 
         $this->assertSame(['failing' => 2, 'stale_minutes' => null], $this->health()->summary());
         $this->assertMatchesRegularExpression(
-            '~<a href="/foreman/jobs"[^>]*>Foreman: 2 job\(s\) failing</a>~',
+            '~<div\b[^>]*data-slot="callout"[^>]*>\s*<a href="/foreman/jobs"[^>]*>Foreman: 2 job\(s\) failing</a>~',
             $this->render()
         );
+    }
+
+    public function testOrphanedFailureDoesNotRenderAnAlert(): void
+    {
+        $this->state('removed.job', 'failed', self::NOW - 600);
+
+        $this->assertSame(['failing' => 0, 'stale_minutes' => null], $this->health()->summary());
+        $this->assertSame('', $this->render());
     }
 
     public function testStaleUsesNewestEnabledFinishAndShortestEnabledInterval(): void
@@ -63,9 +71,23 @@ class HealthTest extends Base
 
         $this->assertSame(['failing' => 0, 'stale_minutes' => 5], $this->health()->summary());
         $this->assertMatchesRegularExpression(
-            '~<a href="/foreman/jobs"[^>]*>Foreman: no job has run for 5 minutes</a>~',
+            '~<div\b[^>]*data-slot="callout"[^>]*>\s*<a href="/foreman/jobs"[^>]*>Foreman: no job has run for 5 minutes</a>~',
             $this->render()
         );
+    }
+
+    public function testStaleStartsOneSecondAfterTwiceTheShortestEnabledInterval(): void
+    {
+        $this->state('example.fast', 'done', self::NOW - 240);
+        $this->state('example.slow', 'done', self::NOW - 300);
+        $now = self::NOW;
+        $health = new Health($this->container, static function () use (&$now): int {
+            return $now;
+        });
+
+        $this->assertNull($health->summary()['stale_minutes']);
+        ++$now;
+        $this->assertSame(4, $health->summary()['stale_minutes']);
     }
 
     public function testNeverFinishedUsesOldestEnabledRow(): void

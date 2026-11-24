@@ -28,12 +28,12 @@ class Health
         $due = [];
 
         while ($state = $states->fetch(PDO::FETCH_ASSOC)) {
-            $failing += (int) ($state['last_status'] === 'failed');
             $job = $jobs[$state['job_id']] ?? null;
             if ($job === null) {
                 continue;
             }
 
+            $failing += (int) ($state['last_status'] === 'failed');
             $intervals[] = $job['interval'];
             $due[] = (int) $state['next_due_at'];
             if ($state['last_finished_at'] !== null) {

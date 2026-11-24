@@ -44,7 +44,7 @@ class JobsController extends BaseController
             'jobs' => $jobs,
             'states' => $states,
             'cliMinutes' => $lastSeen === null ? null : intdiv(max(0, $now - $lastSeen), 60),
-            'staleMinutes' => $this->staleMinutes($jobs, $states, $now),
+            'staleMinutes' => $this->container['foremanHealth']->summary()['stale_minutes'],
             'visitForced' => $this->foremanSettings->isForced('visit_fallback'),
             'schedules' => is_array($scheduleRows) ? $scheduleRows : [],
             'values' => [
@@ -195,32 +195,6 @@ class JobsController extends BaseController
         $statement->execute([$id]);
 
         return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
-    }
-
-    private function staleMinutes(array $jobs, array $states, int $now): ?int
-    {
-        $intervals = [];
-        $due = [];
-        $finished = [];
-        foreach ($jobs as $id => $job) {
-            $state = $states[$id];
-            if (!(int) $state['enabled']) {
-                continue;
-            }
-
-            $intervals[] = $job['interval'];
-            $due[] = (int) $state['next_due_at'];
-            if ($state['last_finished_at'] !== null) {
-                $finished[] = (int) $state['last_finished_at'];
-            }
-        }
-        if ($intervals === []) {
-            return null;
-        }
-
-        $age = $now - ($finished === [] ? min($due) : max($finished));
-
-        return $age >= 2 * min($intervals) ? intdiv($age, 60) : null;
     }
 
     private function renderSettings(string $view, array $parameters): void
