@@ -140,7 +140,7 @@ class RunCommandTest extends Base
         $this->assertNull($this->container['configModel']->getOption('foreman_cli_last_seen', null));
     }
 
-    public function testSelectedJobWithHeldLeaseIsStillEnabled(): void
+    public function testSelectedJobWithHeldLeaseReportsBusy(): void
     {
         $this->addJob('x', static fn (): array => ['status' => 'done']);
         $this->container['foremanRegistry']->sync();
@@ -148,8 +148,8 @@ class RunCommandTest extends Base
         $this->assertTrue($lease->claim('x', self::NOW + 60));
         $tester = $this->tester();
 
-        $this->assertSame(0, $tester->execute(['--job' => 'x']));
-        $this->assertSame('', $tester->getDisplay(true));
+        $this->assertSame(1, $tester->execute(['--job' => 'x']));
+        $this->assertSame("x: busy\n", $tester->getDisplay(true));
         $this->assertSame([], $this->calls);
     }
 

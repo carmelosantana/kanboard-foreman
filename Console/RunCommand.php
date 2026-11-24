@@ -38,8 +38,15 @@ class RunCommand extends Command
         $runner = $this->c['foremanRunner'];
         $exitCode = self::SUCCESS;
         do {
+            $results = $runner->tick('cli', ($this->clock)() + 50, $jobId);
+            if ($jobId !== null && $results === []) {
+                $output->writeln($jobId.': busy', OutputInterface::OUTPUT_RAW);
+
+                return self::FAILURE;
+            }
+
             $repeat = false;
-            foreach ($runner->tick('cli', ($this->clock)() + 50, $jobId) as $result) {
+            foreach ($results as $result) {
                 $status = $result['status'];
                 $line = $result['job_id'].': '.$status;
                 if ($result['summary'] !== '') {
