@@ -3,6 +3,7 @@
 namespace Kanboard\Plugin\Foreman\Model;
 
 use Closure;
+use DateTimeZone;
 use PDO;
 use Pimple\Container;
 
@@ -67,6 +68,7 @@ class Registry
         $jobs = $this->jobs();
         $pdo = $this->c['db']->getConnection();
         $now = ($this->clock)();
+        $tz = new DateTimeZone($this->c['configModel']->get('application_timezone', 'UTC'));
         $insert = 'INSERT INTO foreman_state (job_id, plugin, enabled, next_due_at) VALUES (?, ?, ?, ?)';
         $onConflict = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
             ? 'ON DUPLICATE KEY UPDATE job_id = job_id'
@@ -75,7 +77,7 @@ class Registry
 
         foreach ($jobs as $job) {
             $enabled = $job['id'] !== 'core.cronjob' || ($this->coreEnabled)();
-            $statement->execute([$job['id'], $job['plugin'], (int) $enabled, $now]);
+            $statement->execute([$job['id'], $job['plugin'], (int) $enabled, Schedule::firstDue($job, $now, $tz)]);
         }
     }
 
@@ -90,7 +92,7 @@ class Registry
             isset($jobs[$id]) => 'duplicate id',
             !is_int($interval) || $interval < 60 => 'interval below 60',
             !is_callable($job['run'] ?? null) => 'run not callable',
-            array_key_exists('hour', $job) && (!is_int($hour) || $hour < 0 || $hour > 23) => 'invalid hour',
+            $hour !== null && (!is_int($hour) || $hour < 0 || $hour > 23) => 'invalid hour',
             default => null,
         };
     }

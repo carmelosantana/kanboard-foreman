@@ -2,6 +2,8 @@
 
 namespace Kanboard\Plugin\Foreman\Test;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Kanboard\Core\Plugin\Hook;
 use Kanboard\Plugin\Foreman\Model\Builtin;
 use Kanboard\Plugin\Foreman\Model\Registry;
@@ -104,10 +106,11 @@ class RegistryTest extends Base
         $jobs = $this->registry()->jobs();
 
         $this->assertEqualsCanonicalizing(
-            ['deed.refresh', 'core.cronjob', 'foreman.prune', 'midnight'],
+            ['deed.refresh', 'core.cronjob', 'foreman.prune', 'hour-null', 'midnight'],
             array_keys($jobs)
         );
         $this->assertSame('Deed', $jobs['deed.refresh']['plugin']);
+        $this->assertNull($jobs['hour-null']['hour']);
         $this->assertSame(0, $jobs['midnight']['hour']);
         $this->assertSame([
             'Foreman: skipped job "Bad Id" (invalid id)',
@@ -117,7 +120,6 @@ class RegistryTest extends Base
             'Foreman: skipped job "hour-too-high" (invalid hour)',
             'Foreman: skipped job "hour-too-low" (invalid hour)',
             'Foreman: skipped job "hour-string" (invalid hour)',
-            'Foreman: skipped job "hour-null" (invalid hour)',
         ], $logger->warnings);
     }
 
@@ -192,6 +194,19 @@ class RegistryTest extends Base
         $this->registry(true)->sync();
 
         $this->assertSame(1, (int) $this->state()['core.cronjob']['enabled']);
+    }
+
+    public function testSyncUsesTheApplicationTimezoneForFirstDue(): void
+    {
+        $this->container['configModel']->save(['application_timezone' => 'America/New_York']);
+        $tz = new DateTimeZone('America/New_York');
+        $now = (new DateTimeImmutable('2026-11-23 06:00', $tz))->getTimestamp();
+        $due = (new DateTimeImmutable('2026-11-23 08:00', $tz))->getTimestamp();
+        $registry = new Registry($this->container, fn (): int => $now, fn (): bool => true);
+
+        $registry->sync();
+
+        $this->assertSame($due, (int) $this->state()['core.cronjob']['next_due_at']);
     }
 
     public function testPruneDeletesRunsOlderThanThirtyDays(): void
